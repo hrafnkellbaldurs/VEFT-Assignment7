@@ -1,37 +1,40 @@
+/* Setup */
 var express = require('express');
 var app = express();
 app.use(express.bodyParser());
 
+/* Predefined routes for the API */
 var companiesRoute = '/api/companies';
 var usersRoute = '/api/users';
 
-var cIdCounter = 4;
-var uIdCounter = 4;
+/* A unique identifier counter for each added company. */
+var cIdCounter = 0;
 
-var companies = [ 
-{id: 0, name: 'Krónan', punchCount: 20},
-{id: 1, name: 'Bónus', punchCount: 30},
-{id: 2, name: 'Te og Kaffi', punchCount: 9},
-{id: 3, name: 'AllAround', punchCount: 5}
-];
+/* A unique identifier counter for each added user*/
+var uIdCounter = 0;
 
-var users = [ 
-{id: 0, name: 'Gunnar', email: 'gunnar@email.com'},
-{id: 1, name: 'Kalli', email: 'kalli@email.com'},
-{id: 2, name: 'Hrabbi', email: 'hrabbi@email.com'},
-{id: 3, name: 'Rannveig', email: 'rannveig@email.com'}
-];
+/* An array of company objects with the values:
+	id: int
+	name: string
+	punchCount: int */
+var companies = [];
 
-var punches = [
-{userId: 0, companyId: 0, date: "hehe"},
-{userId: 0, companyId: 0, date: "heho"},
-{userId: 0, companyId: 0, date: "lele"},
-{userId: 0, companyId: 1, date: "hehe"},
-{userId: 0, companyId: 2, date: "hehe"},
-{userId: 0, companyId: 3, date: "hehe"},
-];
+/* An array of user objects with the values:
+	id: int
+	name: string
+	email: string */
+var users = [];
 
-var addCompany = ((_name, _punchCount) => {
+/* An array of punch objects with the values:
+	userId: int 
+	companyId: int 
+	date: string */
+var punches = [];
+
+/* Adds a new company with the given name and punchcount to the companies array.
+	Returns the id of the created company. */
+function addCompany(_name, _punchCount) {
+
 	var newCompany = {
 		id: cIdCounter,
 		name: _name,
@@ -41,9 +44,12 @@ var addCompany = ((_name, _punchCount) => {
 	companies.push(newCompany);
 	cIdCounter++;
 	return newCompany.id;
-});
+}
 
-var addUser = ((_name, _email) => {
+/* Adds a new user with the given name and email to the users array. 
+	Returns the id of the created user. */
+function addUser(_name, _email) {
+
 	var newUser = {
 		id: uIdCounter,
 		name: _name,
@@ -53,9 +59,12 @@ var addUser = ((_name, _email) => {
 	users.push(newUser);
 	uIdCounter++;
 	return newUser.id;
-});
+}
 
-var addPunch = ((_userId, _companyId) =>{
+/* Adds a punch with the given userId and companyId to the punches array. 
+	Returns the added punch. */
+function addPunch(_userId, _companyId) {
+
 	var newPunch = {
 		userId: _userId,
 		companyId: _companyId,
@@ -64,20 +73,22 @@ var addPunch = ((_userId, _companyId) =>{
 
 	punches.push(newPunch);
 	return newPunch;
-});
+}
 
-var getObjectById = ((arr, id) => {
-	console.log('\ngetObjectById: id: ' + id);
+/* Finds and returns the object with the given id in the given array. 
+	If no object is found, returns null. */
+function getObjectById(arr, id) {
 
 	for (var i = 0; i < arr.length; i++) {
-		console.log("name: " + arr[i].name);
 		if(arr[i].id == id) return arr[i];
 	}
 	
 	return null;
-});
+}
 
-var newPunchDTO = ((punch) => {
+/* Returns a PunchDTO */
+function newPunchDTO(punch) {
+
 	var userName = getObjectById(users, punch.userId).name;
 	var companyName = getObjectById(companies, punch.companyId).name;
 	var punchDTO = {
@@ -89,17 +100,25 @@ var newPunchDTO = ((punch) => {
 	};
 
 	return punchDTO;
-}); 
+}
 
-// COMPANIES
+/* Returns true if the object with the id exists in the given array, else false. */
+function objectExists(arr, id){
+	for (var i = 0; i < arr.length; i++) {
+		if(arr[i].id == id) return true;
+	}
+	return false;
+}
 
-/* Returns a list of all registered companies 
-	in json format */
+/* COMPANIES */
+
+/* Returns a list of all registered companies in json format. */
 app.get(companiesRoute, (req, res) => {
+	console.log("got GET request");
 	res.json(companies);
 });
 
-/* Returns a given company by id in json format */
+/* Returns a single company with the given ID in the url. */
 app.get(companiesRoute + '/:id', (req, res) => {
 	var company = getObjectById(companies, req.params.id);
 	if(company === null){
@@ -109,10 +128,7 @@ app.get(companiesRoute + '/:id', (req, res) => {
 	res.json(company);
 });
 
-/* Adds a new company.
-	Param: "name" = The name of the company
-	Param: "punchCount" = Indicates how many punches a user needs
-							to collect in order to get a discount */
+/* Registers a new company. */
 app.post(companiesRoute, (req, res) => {
 	if(!req.body.hasOwnProperty('name') ||
 		!req.body.hasOwnProperty('punchCount')){
@@ -132,39 +148,54 @@ app.post(companiesRoute, (req, res) => {
 	res.json(companyDTO);
 });
 
+/* USERS */
 
-// USERS
+/* Returns a list of all registered users. */
 app.get(usersRoute, (req, res) => {
 	res.json(users);
 });
 
+/* Returns all punches registered for a user with the given ID.
+	If the user provides a query with a company ID, the API returns 
+	all punches registered for the user with the given company. */
 app.get(usersRoute + '/:id/punches', (req, res) => {
 	var companyId = req.query.company;
 	var userId = req.params.id;
 	var userPunchesDTOS = [];
 
-	if(companyId != undefined){
+	if(!objectExists(users, userId)){
+		res.statusCode = 404;
+		return res.send('Error 404: User does not exist.');
+	}
+
+	/* If the user has provided a query. */
+	if(companyId !== undefined){
+
+		if(!objectExists(companies, companyId)){
+			res.statusCode = 404;
+			return res.send('Error 404: Company does not exist.');
+		}
+
 		for (var i = 0; i < punches.length; i++) {
 			if(punches[i].userId == userId &&
 				punches[i].companyId == companyId){
-				var punchDTO = newPunchDTO(punches[i]);
-				userPunchesDTOS.push(punchDTO);
+				userPunchesDTOS.push(newPunchDTO(punches[i]));
 			}
 		}
 		return res.json(userPunchesDTOS);
 	}
 
-	for (var i = 0; i < punches.length; i++) {
-		if(punches[i].userId == userId){
-			var punchDTO = newPunchDTO(punches[i]);
-			userPunchesDTOS.push(punchDTO);
+	/* If the user has not provided a query*/
+	for (var j = 0; j < punches.length; j++) {
+		if(punches[j].userId == userId){
+			userPunchesDTOS.push(newPunchDTO(punches[j]));
 		}
 	}
 
 	res.json(userPunchesDTOS);
-
 });
 
+/* Registers a new user. */
 app.post(usersRoute, (req, res) => {
 	if(!req.body.hasOwnProperty('name') ||
 		!req.body.hasOwnProperty('email')){
@@ -197,7 +228,9 @@ app.post(usersRoute, (req, res) => {
 	res.json(userDTO);
 });
 
+/* Registers a new punch for the user with the given user ID. */
 app.post(usersRoute + '/:id/punches', (req, res) => {
+
 	if(!req.body.hasOwnProperty('id')){
 		res.statusCode = 400;
 		return res.send('Error 400: Post syntax incorrect.');
